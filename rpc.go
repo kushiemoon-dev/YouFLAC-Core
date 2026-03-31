@@ -273,11 +273,16 @@ func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
 
 // trackInfoToResponse converts an AudioTrackInfo into the fetchContent envelope.
 func trackInfoToResponse(info *AudioTrackInfo) *fetchContentResponse {
+	coverURL := info.CoverURL
+	// Validate cover URL — reject malformed ones (e.g. empty album cover from Tidal)
+	if strings.Contains(coverURL, "//640x640") || strings.Contains(coverURL, "/images//") {
+		coverURL = ""
+	}
 	return &fetchContentResponse{
 		Type:       "track",
 		Title:      info.Title,
 		Creator:    info.Artist,
-		CoverURL:   info.CoverURL,
+		CoverURL:   coverURL,
 		TrackCount: 1,
 		Tracks: []fetchContentTrack{
 			{
