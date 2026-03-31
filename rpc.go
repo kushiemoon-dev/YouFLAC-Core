@@ -59,6 +59,15 @@ func (c *Core) dispatch(method string, params json.RawMessage) (interface{}, err
 		return map[string]bool{"ok": true}, nil
 
 	// ── Resolve / Download ──────────────────────────────────────────────
+	case "fetchContent":
+		var p struct {
+			URL string `json:"url"`
+		}
+		if err := json.Unmarshal(params, &p); err != nil {
+			return nil, fmt.Errorf("invalid params: %w", err)
+		}
+		return c.fetchContent(p.URL)
+
 	case "resolveUrl":
 		var p struct {
 			URL string `json:"url"`
@@ -202,6 +211,83 @@ func (c *Core) dispatch(method string, params json.RawMessage) (interface{}, err
 
 	default:
 		return nil, fmt.Errorf("unknown method: %s", method)
+	}
+}
+
+// fetchContentResponse is the envelope returned by the fetchContent RPC.
+type fetchContentResponse struct {
+	Type       string               `json:"type"`
+	Title      string               `json:"title"`
+	Creator    string               `json:"creator"`
+	CoverURL   string               `json:"coverUrl,omitempty"`
+	TrackCount int                  `json:"trackCount"`
+	Tracks     []fetchContentTrack  `json:"tracks"`
+}
+
+type fetchContentTrack struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Artist      string  `json:"artist"`
+	Duration    float64 `json:"duration"`
+	TrackNumber int     `json:"trackNumber"`
+}
+
+// fetchContent resolves a music URL and returns track metadata.
+// Resolution chain: Lucida → Odesli+TidalHiFi → direct service fallback.
+func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
+	if rawURL == "" {
+		return nil, fmt.Errorf("url is required")
+	}
+
+	// 1) Try Lucida first (supports multi-platform URLs natively).
+	if c.lucida.IsAvailable() {
+		if info, err := c.lucida.GetTrackInfo(rawURL); err == nil {
+			return trackInfoToResponse(info), nil
+		}
+	}
+
+	// 2) Try Odesli (song.link) → resolve to best FLAC source → TidalHiFi.
+	if resolved, err := ResolveMusicURL(rawURL); err == nil {
+		if _, tidalURL := GetBestFLACSource(resolved); tidalURL != "" {
+			if c.tidalHifi.IsAvailable() {
+				if info, err := c.tidalHifi.GetTrackInfo(tidalURL); err == nil {
+					return trackInfoToResponse(info), nil
+				}
+			}
+		}
+	}
+
+	// 3) Fallback: try each service directly.
+	services := []AudioDownloadService{c.lucida, c.tidalHifi, c.orpheus}
+	for _, svc := range services {
+		if svc == nil || !svc.IsAvailable() {
+			continue
+		}
+		if info, err := svc.GetTrackInfo(rawURL); err == nil {
+			return trackInfoToResponse(info), nil
+		}
+	}
+
+	return nil, fmt.Errorf("no service could resolve content for URL: %s", rawURL)
+}
+
+// trackInfoToResponse converts an AudioTrackInfo into the fetchContent envelope.
+func trackInfoToResponse(info *AudioTrackInfo) *fetchContentResponse {
+	return &fetchContentResponse{
+		Type:       "track",
+		Title:      info.Title,
+		Creator:    info.Artist,
+		CoverURL:   info.CoverURL,
+		TrackCount: 1,
+		Tracks: []fetchContentTrack{
+			{
+				ID:          info.ID,
+				Title:       info.Title,
+				Artist:      info.Artist,
+				Duration:    info.Duration,
+				TrackNumber: info.TrackNumber,
+			},
+		},
 	}
 }
 

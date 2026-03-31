@@ -83,6 +83,38 @@ func TestHandleRPC_QueueList(t *testing.T) {
 	}
 }
 
+func TestHandleRPC_FetchContent(t *testing.T) {
+	c := newTestCore(t)
+	result := c.HandleRPC(`{"method":"fetchContent","params":{"url":"https://example.com/not-music"}}`)
+	var resp RPCResponse
+	json.Unmarshal([]byte(result), &resp)
+	// Services may or may not resolve a bogus URL depending on network;
+	// the RPC must return either a valid result or a structured error.
+	if resp.Error == nil && resp.Result == nil {
+		t.Fatal("should return either result or error")
+	}
+}
+
+func TestHandleRPC_FetchContent_MissingURL(t *testing.T) {
+	c := newTestCore(t)
+	result := c.HandleRPC(`{"method":"fetchContent","params":{}}`)
+	var resp RPCResponse
+	json.Unmarshal([]byte(result), &resp)
+	if resp.Error == nil {
+		t.Fatal("expected error for missing URL")
+	}
+}
+
+func TestHandleRPC_FetchContent_InvalidParams(t *testing.T) {
+	c := newTestCore(t)
+	result := c.HandleRPC(`{"method":"fetchContent","params":"bad"}`)
+	var resp RPCResponse
+	json.Unmarshal([]byte(result), &resp)
+	if resp.Error == nil {
+		t.Fatal("expected error for invalid params")
+	}
+}
+
 func TestHandleRPC_HistoryList(t *testing.T) {
 	c := newTestCore(t)
 	result := c.HandleRPC(`{"method":"history.list"}`)
