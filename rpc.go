@@ -241,7 +241,7 @@ func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
 
 	// 1) Try Lucida first (supports multi-platform URLs natively).
 	if c.lucida.IsAvailable() {
-		if info, err := c.lucida.GetTrackInfo(rawURL); err == nil {
+		if info, err := c.lucida.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
 			return trackInfoToResponse(info), nil
 		}
 	}
@@ -250,7 +250,7 @@ func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
 	if resolved, err := ResolveMusicURL(rawURL); err == nil {
 		if _, tidalURL := GetBestFLACSource(resolved); tidalURL != "" {
 			if c.tidalHifi.IsAvailable() {
-				if info, err := c.tidalHifi.GetTrackInfo(tidalURL); err == nil {
+				if info, err := c.tidalHifi.GetTrackInfo(tidalURL); err == nil && isValidTrackInfo(info) {
 					return trackInfoToResponse(info), nil
 				}
 			}
@@ -263,7 +263,7 @@ func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
 		if svc == nil || !svc.IsAvailable() {
 			continue
 		}
-		if info, err := svc.GetTrackInfo(rawURL); err == nil {
+		if info, err := svc.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
 			return trackInfoToResponse(info), nil
 		}
 	}
@@ -289,6 +289,11 @@ func trackInfoToResponse(info *AudioTrackInfo) *fetchContentResponse {
 			},
 		},
 	}
+}
+
+// isValidTrackInfo checks that the resolved track has meaningful data.
+func isValidTrackInfo(info *AudioTrackInfo) bool {
+	return info != nil && info.Title != ""
 }
 
 // extractID is a small helper to pull an "id" field from params.
