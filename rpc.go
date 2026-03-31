@@ -240,32 +240,24 @@ func (c *Core) fetchContent(rawURL string) (*fetchContentResponse, error) {
 	}
 
 	// 1) Try Lucida first (supports multi-platform URLs natively).
-	if c.lucida.IsAvailable() {
-		if info, err := c.lucida.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
-			return trackInfoToResponse(info), nil
-		}
+	// Skip IsAvailable() checks — they do slow HEAD requests that cause ANR.
+	// If the service is down, GetTrackInfo will fail fast with a connection error.
+	if info, err := c.lucida.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
+		return trackInfoToResponse(info), nil
 	}
 
 	// 2) Try Odesli (song.link) → resolve to best FLAC source → TidalHiFi.
 	if resolved, err := ResolveMusicURL(rawURL); err == nil {
 		if _, tidalURL := GetBestFLACSource(resolved); tidalURL != "" {
-			if c.tidalHifi.IsAvailable() {
-				if info, err := c.tidalHifi.GetTrackInfo(tidalURL); err == nil && isValidTrackInfo(info) {
-					return trackInfoToResponse(info), nil
-				}
+			if info, err := c.tidalHifi.GetTrackInfo(tidalURL); err == nil && isValidTrackInfo(info) {
+				return trackInfoToResponse(info), nil
 			}
 		}
 	}
 
-	// 3) Fallback: try each service directly.
-	services := []AudioDownloadService{c.lucida, c.tidalHifi, c.orpheus}
-	for _, svc := range services {
-		if svc == nil || !svc.IsAvailable() {
-			continue
-		}
-		if info, err := svc.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
-			return trackInfoToResponse(info), nil
-		}
+	// 3) Fallback: try TidalHiFi directly (for tidal.com URLs).
+	if info, err := c.tidalHifi.GetTrackInfo(rawURL); err == nil && isValidTrackInfo(info) {
+		return trackInfoToResponse(info), nil
 	}
 
 	return nil, fmt.Errorf("no service could resolve content for URL: %s", rawURL)

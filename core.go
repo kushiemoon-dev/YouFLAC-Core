@@ -35,20 +35,22 @@ func NewCore(dataDir string) (*Core, error) {
 		config = GetDefaultConfig()
 	}
 
-	// HTTP client (respects proxy from config / env)
+	// HTTP timeout for downloads
 	timeout := time.Duration(config.DownloadTimeoutMinutes) * time.Minute
 	if timeout == 0 {
 		timeout = 10 * time.Minute
 	}
-	httpClient, err := NewHTTPClient(timeout, config.ProxyURL)
+
+	// Fast HTTP client for metadata lookups (10s timeout, not 10 minutes)
+	lookupClient, err := NewHTTPClient(10*time.Second, config.ProxyURL)
 	if err != nil {
 		slog.Warn("proxy config invalid, falling back to direct", "err", err)
-		httpClient, _ = NewHTTPClient(timeout, "")
+		lookupClient, _ = NewHTTPClient(10*time.Second, "")
 	}
 
-	// Audio services
-	lucida := NewLucidaService(httpClient)
-	tidalHifi := NewTidalHifiService(httpClient)
+	// Audio services (use fast lookup client)
+	lucida := NewLucidaService(lookupClient)
+	tidalHifi := NewTidalHifiService(lookupClient)
 	orpheus := NewOrpheusDLService()
 
 	// Unified downloader
