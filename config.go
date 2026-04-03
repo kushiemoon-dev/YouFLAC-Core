@@ -58,6 +58,9 @@ type Config struct {
 	ArtistSeparator         string  `json:"artistSeparator"`         // Separator for multi-artist names ("; ", ", ", " & ")
 	AutoQualityFallback     bool    `json:"autoQualityFallback"`     // Auto-retry with lower quality if preferred unavailable
 	SearchResultsLimit      int     `json:"searchResultsLimit"`      // Max YouTube search results (default 10)
+	QobuzAppID              string  `json:"qobuzAppId"`              // Qobuz application ID
+	QobuzAppSecret          string  `json:"qobuzAppSecret"`          // Qobuz application secret
+	QobuzUserToken          string  `json:"qobuzUserToken"`          // Qobuz user authentication token
 }
 
 var defaultConfig = Config{
