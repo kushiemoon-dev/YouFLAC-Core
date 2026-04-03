@@ -50,7 +50,7 @@ func NewCore(dataDir string) (*Core, error) {
 
 	// Audio services (use fast lookup client)
 	lucida := NewLucidaService(lookupClient)
-	tidalHifi := NewTidalHifiService(lookupClient)
+	tidalHifi := NewTidalHifiService(lookupClient, config.PreferredQuality)
 	orpheus := NewOrpheusDLService()
 
 	// Unified downloader

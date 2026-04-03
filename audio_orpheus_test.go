@@ -19,7 +19,7 @@ import (
 
 // newTidalSvc creates a TidalHifiService pointed at a mock test server.
 func newTidalSvc(ts *httptest.Server) *TidalHifiService {
-	svc := NewTidalHifiService(ts.Client())
+	svc := NewTidalHifiService(ts.Client(), "highest")
 	svc.baseURL = ts.URL
 	return svc
 }
@@ -282,6 +282,26 @@ func TestTidalHifiService_GetStreamURL_EmptyURLs(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "no download URLs") {
 		t.Errorf("error %q should mention 'no download URLs'", err.Error())
+	}
+}
+
+func TestTidalHifiService_GetStreamURL_UsesHiResQuality(t *testing.T) {
+	var capturedQuality string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuality = r.URL.Query().Get("quality")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": map[string]interface{}{"manifest": ""},
+		})
+	}))
+	defer ts.Close()
+
+	svc := NewTidalHifiService(ts.Client(), "highest")
+	svc.baseURL = ts.URL
+	svc.GetStreamURL(123) // error expected (empty manifest), but server receives request
+
+	if capturedQuality != string(TidalQualityHiRes) {
+		t.Errorf("expected quality=%s, got %s", TidalQualityHiRes, capturedQuality)
 	}
 }
 
