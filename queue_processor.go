@@ -548,10 +548,16 @@ func (q *Queue) processItem(id string) {
 
 	// Download cover if embedding
 	var coverPath string
-	if config.EmbedCoverArt && videoInfo.Thumbnail != "" {
-		coverPath = filepath.Join(tempDir, "cover.jpg")
-		if err := DownloadPoster(videoInfo.Thumbnail, coverPath); err != nil {
-			coverPath = "" // Failed to download, proceed without cover
+	if config.EmbedCoverArt && videoID != "" {
+		thumbURL := GetThumbnailMax(videoID)
+		if thumbURL == "" {
+			thumbURL = videoInfo.Thumbnail
+		}
+		if thumbURL != "" {
+			coverPath = filepath.Join(tempDir, "cover.jpg")
+			if err := DownloadPoster(thumbURL, coverPath); err != nil {
+				coverPath = "" // Failed to download, proceed without cover
+			}
 		}
 	}
 

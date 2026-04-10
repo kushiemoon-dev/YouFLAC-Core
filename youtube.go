@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
@@ -61,6 +62,31 @@ var (
 	youtubeMusicRegex = regexp.MustCompile(`music\.youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})`)
 	playlistRegex     = regexp.MustCompile(`[?&]list=([a-zA-Z0-9_-]+)`)
 )
+
+var youtubeThumbnailBase = "https://i.ytimg.com/vi"
+
+// GetThumbnailMax returns the highest-resolution thumbnail URL available
+// for a YouTube video, probing maxresdefault → sddefault → hqdefault via HEAD.
+func GetThumbnailMax(videoID string) string {
+	candidates := []string{"maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"}
+	client := &http.Client{Timeout: 5 * time.Second}
+	for _, c := range candidates {
+		u := fmt.Sprintf("%s/%s/%s", youtubeThumbnailBase, videoID, c)
+		req, err := http.NewRequest("HEAD", u, nil)
+		if err != nil {
+			continue
+		}
+		resp, err := client.Do(req)
+		if err != nil {
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode == 200 {
+			return u
+		}
+	}
+	return fmt.Sprintf("%s/%s/hqdefault.jpg", youtubeThumbnailBase, videoID)
+}
 
 // ParseYouTubeURL extracts video ID from various YouTube URL formats
 // Supports: youtube.com, youtu.be, music.youtube.com, shorts
