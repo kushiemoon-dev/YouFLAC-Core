@@ -192,6 +192,7 @@ func (c *Core) dispatch(method string, params json.RawMessage) (interface{}, err
 		var p struct {
 			OutputDir    string `json:"outputDir"`
 			PlaylistName string `json:"playlistName"`
+			Thumbnail    string `json:"thumbnail"`
 		}
 		if err := json.Unmarshal(params, &p); err != nil {
 			return nil, fmt.Errorf("invalid params: %w", err)
@@ -203,7 +204,7 @@ func (c *Core) dispatch(method string, params json.RawMessage) (interface{}, err
 				items = append(items, it)
 			}
 		}
-		return nil, GenerateM3U8(items, p.OutputDir, p.PlaylistName)
+		return nil, GenerateM3U8WithCover(items, p.OutputDir, p.PlaylistName, p.Thumbnail)
 
 	// ── Meta ────────────────────────────────────────────────────────────
 	case "getVersion":
