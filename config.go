@@ -65,6 +65,7 @@ type Config struct {
 	FetchCacheEnabled    bool     `json:"fetchCacheEnabled"`
 	FetchCacheTTLSeconds int      `json:"fetchCacheTtlSeconds"`
 	QualityFallbackOrder []string `json:"qualityFallbackOrder"`
+	UIFont               string   `json:"uiFont"` // "outfit", "inter", "bricolage"
 }
 
 var defaultConfig = Config{
@@ -96,6 +97,7 @@ var defaultConfig = Config{
 	FetchCacheEnabled:    true,
 	FetchCacheTTLSeconds: 3600,
 	QualityFallbackOrder: []string{"highest", "24bit", "16bit"},
+	UIFont:               "outfit",
 }
 
 // GetConfigPath returns the path to the config file
