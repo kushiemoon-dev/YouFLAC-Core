@@ -121,8 +121,10 @@ func TestConvertDirectory_ContextCancel(t *testing.T) {
 	if err == nil {
 		t.Error("expected context cancellation error, got nil")
 	}
-	// Should have stopped early — not processed all files + no final summary
-	if count > 2 {
-		t.Errorf("expected early exit, but got %d results", count)
+	// cancel() is called synchronously in the callback after the first file.
+	// ConvertDirectory checks ctx.Done() before each file, so only 1 result is expected.
+	// count >= 2 means the second file was also processed — early exit did not work.
+	if count >= 2 {
+		t.Errorf("expected early exit after first file, but got %d results", count)
 	}
 }
