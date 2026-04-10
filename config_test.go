@@ -60,3 +60,10 @@ func TestResolveFallbackOrder_FallsBackToDefault(t *testing.T) {
 		t.Errorf("expected preferred first, got %v", got)
 	}
 }
+
+func TestAutoProxyFallback_Default(t *testing.T) {
+	cfg := GetDefaultConfig()
+	if !cfg.AutoProxyFallback {
+		t.Errorf("expected AutoProxyFallback=true by default")
+	}
+}

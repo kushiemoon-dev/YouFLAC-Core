@@ -48,6 +48,7 @@ type Config struct {
 	LyricsEmbedMode      string   `json:"lyricsEmbedMode"`     // "embed", "lrc", "both"
 	LogLevel                string  `json:"logLevel"`                // "debug", "info", "warn", "error"
 	ProxyURL                string  `json:"proxyUrl"`                // "socks5://127.0.0.1:1080" or ""
+	AutoProxyFallback       bool    `json:"autoProxyFallback"`       // Retry via proxy on 403/429/451
 	DownloadTimeoutMinutes  float64 `json:"downloadTimeoutMinutes"`  // per-file download timeout (0 = default 10m)
 	PreferredQuality        string  `json:"preferredQuality"`        // "highest", "24bit", "16bit"
 	GenerateM3U8            bool    `json:"generateM3u8"`            // Generate .m3u8 playlist when a batch completes
@@ -81,6 +82,7 @@ var defaultConfig = Config{
 	LyricsEmbedMode:        "lrc",
 	LogLevel:               "info",
 	ProxyURL:               "",
+	AutoProxyFallback:      true,
 	DownloadTimeoutMinutes: 10,
 	PreferredQuality:       "highest",
 	GenerateM3U8:           false,
@@ -232,6 +234,9 @@ func LoadConfigWithEnv() (*Config, error) {
 	}
 	if v := os.Getenv("PROXY_URL"); v != "" {
 		config.ProxyURL = v
+	}
+	if v := os.Getenv("AUTO_PROXY_FALLBACK"); v != "" {
+		config.AutoProxyFallback = strings.ToLower(v) == "true" || v == "1"
 	}
 	if v := os.Getenv("DOWNLOAD_TIMEOUT_MINUTES"); v != "" {
 		if f, err := strconv.ParseFloat(v, 64); err == nil && f > 0 {
