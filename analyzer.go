@@ -100,7 +100,7 @@ func (a *AudioAnalysis) fetchProbeData() error {
 			Profile       string `json:"profile"`
 			SampleRate    string `json:"sample_rate"`
 			Channels      int    `json:"channels"`
-			BitsPerSample int    `json:"bits_per_raw_sample"`
+			BitsPerSample json.Number `json:"bits_per_raw_sample"`
 			BitRate       string `json:"bit_rate"`
 			Duration      string `json:"duration"`
 		} `json:"streams"`
@@ -126,7 +126,9 @@ func (a *AudioAnalysis) fetchProbeData() error {
 	a.Profile = stream.Profile
 	a.Format = probeData.Format.FormatName
 	a.Channels = stream.Channels
-	a.BitsPerSample = stream.BitsPerSample
+	if bps, err := strconv.Atoi(stream.BitsPerSample.String()); err == nil {
+		a.BitsPerSample = bps
+	}
 
 	// Parse sample rate
 	if sr, err := strconv.Atoi(stream.SampleRate); err == nil {
