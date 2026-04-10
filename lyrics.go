@@ -132,14 +132,13 @@ func stripXMLTags(s string) string {
 func FetchYouTubeCaptions(videoID string) (*LyricsResult, error) {
 	reqURL := youtubeTimedTextURL + "?v=" + videoID + "&lang=en&fmt=xml"
 
-	client := &http.Client{Timeout: 10 * time.Second}
 	req, err := http.NewRequest("GET", reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build request: %w", err)
 	}
 	req.Header.Set("User-Agent", "YouFlac/1.0")
 
-	resp, err := client.Do(req)
+	resp, err := lyricsHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("youtube captions request failed: %w", err)
 	}
@@ -435,7 +434,11 @@ func SaveLRCFile(lyrics *LyricsResult, mediaFilePath string) (string, error) {
 		content.WriteString(fmt.Sprintf("[length:%02d:%02d]\n", mins, secs))
 	}
 	content.WriteString("[by:YouFlac]\n")
-	content.WriteString("[re:LRCLIB]\n\n")
+	reSource := lyrics.Source
+	if reSource == "" {
+		reSource = "LRCLIB"
+	}
+	content.WriteString(fmt.Sprintf("[re:%s]\n\n", reSource))
 
 	// Add synced lyrics
 	content.WriteString(lyrics.SyncedLyrics)
