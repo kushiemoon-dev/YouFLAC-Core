@@ -14,7 +14,7 @@ func TestChannelJobs_StartAndStream(t *testing.T) {
 	done := make(chan struct{})
 	var count int
 
-	id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{}, func(v VideoInfoLite) {
+	id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{}, func(_ string, _ VideoInfoLite, _ int) {
 		count++
 	}, func(total, errs int) {
 		close(done)
@@ -52,7 +52,7 @@ func TestChannelJobs_CancelJob(t *testing.T) {
 	var mu sync.Mutex
 	var count int
 
-	id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{}, func(v VideoInfoLite) {
+	id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{}, func(_ string, _ VideoInfoLite, _ int) {
 		mu.Lock()
 		count++
 		if count == 1 {
@@ -108,7 +108,7 @@ func TestChannelJobs_ConcurrentStartUniqueIDs(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{MaxItems: 1}, func(VideoInfoLite) {}, func(_, _ int) {})
+			id := reg.StartJob("https://www.youtube.com/@Test", ChannelOpts{MaxItems: 1}, func(_ string, _ VideoInfoLite, _ int) {}, func(_, _ int) {})
 			mu.Lock()
 			ids[id] = true
 			mu.Unlock()

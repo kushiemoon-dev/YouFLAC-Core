@@ -1062,9 +1062,10 @@ func FetchChannelUploads(ctx context.Context, channelURL string, opts ChannelOpt
 
 		count := 0
 		scanner := bufio.NewScanner(stdout)
+	loop:
 		for scanner.Scan() {
 			if ctx.Err() != nil {
-				break
+				break loop
 			}
 			line := scanner.Bytes()
 			var v VideoInfoLite
@@ -1081,11 +1082,11 @@ func FetchChannelUploads(ctx context.Context, channelURL string, opts ChannelOpt
 			select {
 			case results <- v:
 			case <-ctx.Done():
-				break
+				break loop
 			}
 			count++
 			if opts.MaxItems > 0 && count >= opts.MaxItems {
-				break
+				break loop
 			}
 		}
 

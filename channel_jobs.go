@@ -31,7 +31,7 @@ func NewChannelJobRegistry() *ChannelJobRegistry {
 
 // StartJob starts a new channel fetch job. onItem is called for each fetched video,
 // onDone is called when the job completes. Returns the job ID.
-func (r *ChannelJobRegistry) StartJob(url string, opts ChannelOpts, onItem func(VideoInfoLite), onDone func(total, errs int)) string {
+func (r *ChannelJobRegistry) StartJob(url string, opts ChannelOpts, onItem func(id string, v VideoInfoLite, n int), onDone func(total, errs int)) string {
 	r.prune()
 
 	id := newJobID()
@@ -52,8 +52,8 @@ func (r *ChannelJobRegistry) StartJob(url string, opts ChannelOpts, onItem func(
 		errCount := 0
 		count := 0
 		for v := range items {
-			onItem(v)
 			count++
+			onItem(id, v, count)
 			r.mu.Lock()
 			job.Count = count
 			r.mu.Unlock()
