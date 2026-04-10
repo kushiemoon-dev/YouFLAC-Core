@@ -29,10 +29,13 @@ type Metadata struct {
 	DiscNumber  int      `json:"discNumber,omitempty"`
 	TotalDiscs  int      `json:"totalDiscs,omitempty"`
 	Copyright   string   `json:"copyright,omitempty"`
+	Explicit    bool     `json:"explicit,omitempty"`
 	Label       string   `json:"label,omitempty"`
 	Description string   `json:"description,omitempty"`
 	YouTubeID   string   `json:"youtubeId,omitempty"`
 	YouTubeURL  string   `json:"youtubeUrl,omitempty"`
+	ViewCount   int64    `json:"viewCount,omitempty"`
+	UploadDate  string   `json:"uploadDate,omitempty"` // YYYYMMDD from yt-dlp
 	Thumbnail   string   `json:"thumbnail,omitempty"`
 	Directors   []string `json:"directors,omitempty"`
 	Studios     []string `json:"studios,omitempty"`
@@ -164,8 +167,18 @@ func ApplyTemplate(template string, metadata *Metadata) string {
 	// Album Artist
 	path = strings.ReplaceAll(path, "{albumArtist}", sanitizeOrEmpty(metadata.AlbumArtist))
 
-	// Release date (YYYY-MM-DD or YYYY)
-	path = strings.ReplaceAll(path, "{date}", sanitizeOrEmpty(metadata.ReleaseDate))
+	// Release date: prefer UploadDate (YYYYMMDD from yt-dlp) over ReleaseDate
+	dateVal := sanitizeOrEmpty(metadata.ReleaseDate)
+	if len(metadata.UploadDate) == 8 {
+		dateVal = metadata.UploadDate[:4] + "-" + metadata.UploadDate[4:6] + "-" + metadata.UploadDate[6:8]
+	}
+	path = strings.ReplaceAll(path, "{date}", dateVal)
+	path = strings.ReplaceAll(path, "{youtube_url}", sanitizeOrEmpty(metadata.YouTubeURL))
+	viewCountStr := ""
+	if metadata.ViewCount > 0 {
+		viewCountStr = strconv.FormatInt(metadata.ViewCount, 10)
+	}
+	path = strings.ReplaceAll(path, "{view_count}", viewCountStr)
 
 	// YouTube ID
 	path = strings.ReplaceAll(path, "{youtube_id}", metadata.YouTubeID)
@@ -338,7 +351,7 @@ func ValidateTemplate(template string) error {
 	}
 
 	// Check for at least one placeholder
-	placeholders := []string{"{artist}", "{title}", "{album}", "{albumArtist}", "{year}", "{date}", "{track}", "{genre}", "{youtube_id}"}
+	placeholders := []string{"{artist}", "{title}", "{album}", "{albumArtist}", "{year}", "{date}", "{track}", "{genre}", "{youtube_id}", "{youtube_url}", "{view_count}"}
 	hasPlaceholder := false
 	for _, p := range placeholders {
 		if strings.Contains(template, p) {

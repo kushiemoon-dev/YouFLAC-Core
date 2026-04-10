@@ -56,3 +56,19 @@ func GenerateM3U8(items []QueueItem, outputDir, playlistName string) error {
 
 	return os.WriteFile(m3u8Path, []byte(sb.String()), 0644)
 }
+
+// GenerateM3U8WithCover generates an M3U8 playlist and downloads a cover image.
+func GenerateM3U8WithCover(items []QueueItem, outputDir, playlistName, thumbURL string) error {
+	if err := GenerateM3U8(items, outputDir, playlistName); err != nil {
+		return err
+	}
+	if thumbURL == "" {
+		return nil
+	}
+	safeName := SanitizeFileName(playlistName)
+	if safeName == "" {
+		safeName = "playlist"
+	}
+	jpgPath := filepath.Join(outputDir, safeName+".jpg")
+	return downloadFile(thumbURL, jpgPath)
+}

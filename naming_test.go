@@ -8,6 +8,31 @@ import (
 	"testing"
 )
 
+func TestApplyTemplate_Phase3Placeholders(t *testing.T) {
+	m := &Metadata{
+		Title:      "Song",
+		Artist:     "Artist",
+		YouTubeID:  "abc12345678",
+		YouTubeURL: "https://www.youtube.com/watch?v=abc12345678",
+		ViewCount:  1234567,
+		UploadDate: "20240115",
+	}
+	cases := []struct {
+		tmpl string
+		want string
+	}{
+		{"{artist}/{title} [{youtube_url}]", "Artist/Song [httpswww.youtube.comwatchv=abc12345678]"},
+		{"{artist} - {view_count}", "Artist - 1234567"},
+		{"{date}/{title}", "2024-01-15/Song"},
+	}
+	for _, c := range cases {
+		got := ApplyTemplate(c.tmpl, m)
+		if got != c.want {
+			t.Errorf("tmpl=%q\n  got  %q\n  want %q", c.tmpl, got, c.want)
+		}
+	}
+}
+
 func TestSanitizeFileName(t *testing.T) {
 	tests := []struct {
 		input    string

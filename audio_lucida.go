@@ -26,8 +26,9 @@ var lucidaEndpoints = []string{
 
 // LucidaService implements AudioDownloadService using lucida.to
 type LucidaService struct {
-	client    *http.Client
-	endpoints []string // overrideable for testing
+	client      *http.Client
+	proxyClient *http.Client // optional fallback used by DoWithProxyFallback on 403/429
+	endpoints   []string     // overrideable for testing
 }
 
 // LucidaResponse represents the API response from lucida.to
@@ -54,7 +55,7 @@ type LucidaResponse struct {
 }
 
 // NewLucidaService creates a new Lucida download service.
-// If client is nil, a default client is used (respects PROXY_URL env var).
+// If client is nil, a default client is used (no proxy).
 func NewLucidaService(client *http.Client) *LucidaService {
 	if client == nil {
 		client, _ = NewHTTPClient(0, "")
@@ -62,6 +63,19 @@ func NewLucidaService(client *http.Client) *LucidaService {
 	return &LucidaService{
 		client:    client,
 		endpoints: lucidaEndpoints,
+	}
+}
+
+// NewLucidaServiceWithFallback creates a Lucida service that retries via proxyClient
+// on 403/429/451 responses. directClient is used for the initial attempt.
+func NewLucidaServiceWithFallback(directClient, proxyClient *http.Client) *LucidaService {
+	if directClient == nil {
+		directClient, _ = NewHTTPClient(0, "")
+	}
+	return &LucidaService{
+		client:      directClient,
+		proxyClient: proxyClient,
+		endpoints:   lucidaEndpoints,
 	}
 }
 
@@ -131,7 +145,7 @@ func (l *LucidaService) fetchTrackData(trackURL string) (*LucidaResponse, error)
 		req.Header.Set("Origin", endpoint)
 		req.Header.Set("Referer", endpoint+"/")
 
-		resp, err := l.client.Do(req)
+		resp, err := DoWithProxyFallback(l.client, l.proxyClient, req, "")
 		if err != nil {
 			slog.Debug("lucida endpoint failed", "endpoint", endpoint, "err", err)
 			lastErr = err
