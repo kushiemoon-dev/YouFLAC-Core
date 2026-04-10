@@ -23,6 +23,11 @@ func PreviewAudio(ctx context.Context, videoURL string, maxSeconds int) (io.Read
 		return nil, fmt.Errorf("ffmpeg not found: install ffmpeg to enable audio preview")
 	}
 
+	// SSRF guard: only allow YouTube URLs
+	if !strings.HasPrefix(videoURL, "https://www.youtube.com/") && !strings.HasPrefix(videoURL, "https://youtu.be/") {
+		return nil, fmt.Errorf("unsupported URL: only YouTube URLs are accepted")
+	}
+
 	// Get direct audio stream URL from yt-dlp
 	ytCmd := exec.CommandContext(ctx, "yt-dlp",
 		"--get-url",
@@ -30,12 +35,16 @@ func PreviewAudio(ctx context.Context, videoURL string, maxSeconds int) (io.Read
 		"--no-playlist",
 		videoURL,
 	)
-	out, err := ytCmd.Output()
+	out, err := ytCmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("yt-dlp failed to get audio URL: %w", err)
+		msg := strings.TrimSpace(string(out))
+		if msg == "" {
+			msg = err.Error()
+		}
+		return nil, fmt.Errorf("yt-dlp failed: %s", msg)
 	}
 
-	audioURL := strings.TrimSpace(string(out))
+	audioURL := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)[0]
 	if audioURL == "" {
 		return nil, fmt.Errorf("yt-dlp returned empty URL for %s", videoURL)
 	}
@@ -70,7 +79,9 @@ type previewReadCloser struct {
 
 func (p *previewReadCloser) Close() error {
 	err := p.ReadCloser.Close()
-	// Wait releases process resources; ignore the error (process may have already exited cleanly)
+	if p.cmd.Process != nil {
+		_ = p.cmd.Process.Kill()
+	}
 	_ = p.cmd.Wait()
 	return err
 }
