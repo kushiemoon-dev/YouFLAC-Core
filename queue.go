@@ -62,6 +62,10 @@ type QueueItem struct {
 	// Audio-only fallback (video unavailable)
 	AudioOnly bool `json:"audioOnly,omitempty"`
 
+	// Force a specific audio source on next retry (set via RetryWithOverride)
+	// TODO: honour ForceSource in audio selection pipeline
+	ForceSource string `json:"forceSource,omitempty"`
+
 	// Diagnostics de matching (peuplés si erreur ou match incertain)
 	MatchCandidates  []AudioCandidate  `json:"matchCandidates,omitempty"`
 	MatchDiagnostics *MatchDiagnostics `json:"matchDiagnostics,omitempty"`
@@ -82,9 +86,10 @@ type MatchDiagnostics struct {
 
 // RetryOverrideRequest allows retrying a failed item with corrected metadata
 type RetryOverrideRequest struct {
-	Artist   string `json:"artist,omitempty"`
-	Title    string `json:"title,omitempty"`
-	MusicURL string `json:"musicUrl,omitempty"` // Direct Spotify/Tidal/Qobuz URL
+	Artist      string `json:"artist,omitempty"`
+	Title       string `json:"title,omitempty"`
+	MusicURL    string `json:"musicUrl,omitempty"`    // Direct Spotify/Tidal/Qobuz URL
+	ForceSource string `json:"forceSource,omitempty"` // "tidal", "qobuz", "amazon", "lucida"
 }
 
 // DownloadRequest is the input for adding items to queue
@@ -578,6 +583,9 @@ func (q *Queue) RetryWithOverride(id string, req RetryOverrideRequest) (*QueueIt
 			}
 			if req.Title != "" {
 				item.Title = req.Title
+			}
+			if req.ForceSource != "" {
+				item.ForceSource = req.ForceSource
 			}
 			item.Status = StatusPending
 			item.Progress = 0
