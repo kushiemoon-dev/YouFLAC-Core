@@ -275,9 +275,13 @@ func (q *Queue) processItem(id string) {
 
 	// Create metadata for NFO
 	metadata := &Metadata{
-		Title:    videoInfo.Title,
-		Artist:   videoInfo.Artist,
-		Duration: videoInfo.Duration,
+		Title:      videoInfo.Title,
+		Artist:     videoInfo.Artist,
+		Duration:   videoInfo.Duration,
+		YouTubeID:  videoID,
+		YouTubeURL: videoInfo.URL,
+		ViewCount:  videoInfo.ViewCount,
+		UploadDate: videoInfo.UploadDate,
 	}
 
 	// Try to find and download FLAC audio using multi-service cascade
@@ -503,12 +507,16 @@ func (q *Queue) processItem(id string) {
 
 	// Create metadata for muxing
 	muxMetadata := &Metadata{
-		Title:     videoInfo.Title,
-		Artist:    videoInfo.Artist,
-		Album:     item.Album,
-		Thumbnail: videoInfo.Thumbnail,
-		Duration:  videoInfo.Duration,
-		Track:     item.PlaylistPosition, // Use playlist position as track number
+		Title:      videoInfo.Title,
+		Artist:     videoInfo.Artist,
+		Album:      item.Album,
+		Thumbnail:  videoInfo.Thumbnail,
+		Duration:   videoInfo.Duration,
+		Track:      item.PlaylistPosition, // Use playlist position as track number
+		YouTubeID:  videoID,
+		YouTubeURL: videoInfo.URL,
+		ViewCount:  videoInfo.ViewCount,
+		UploadDate: videoInfo.UploadDate,
 	}
 
 	// Generate output path using naming template

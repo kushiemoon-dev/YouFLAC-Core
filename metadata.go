@@ -44,6 +44,16 @@ func GetMKVMetadataArgs(metadata *Metadata) []string {
 	if metadata.TotalDiscs > 0 {
 		args = append(args, "-metadata", fmt.Sprintf("totaldiscs=%d", metadata.TotalDiscs))
 	}
+	if metadata.YouTubeURL != "" {
+		args = append(args, "-metadata", fmt.Sprintf("YOUTUBE_URL=%s", metadata.YouTubeURL))
+	}
+	if metadata.ViewCount > 0 {
+		args = append(args, "-metadata", fmt.Sprintf("VIEW_COUNT=%d", metadata.ViewCount))
+	}
+	if len(metadata.UploadDate) == 8 {
+		iso := metadata.UploadDate[:4] + "-" + metadata.UploadDate[4:6] + "-" + metadata.UploadDate[6:8]
+		args = append(args, "-metadata", fmt.Sprintf("date=%s", iso))
+	}
 
 	return args
 }
