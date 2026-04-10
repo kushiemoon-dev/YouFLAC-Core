@@ -339,8 +339,12 @@ func (q *Queue) processItem(id string) {
 			// Build candidates for diagnostics
 			songlinkCandidates = buildCandidatesFromSongLink(links)
 
-			// Try each audio source in priority order
-			for _, source := range config.AudioSourcePriority {
+			// Try each audio source in priority order (ForceSource overrides priority list)
+			sourcePriority := config.AudioSourcePriority
+			if item.ForceSource != "" {
+				sourcePriority = []string{item.ForceSource}
+			}
+			for _, source := range sourcePriority {
 				select {
 				case <-itemCtx.Done():
 					return
