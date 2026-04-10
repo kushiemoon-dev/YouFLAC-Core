@@ -21,16 +21,14 @@ func TestApplyTemplate_Phase3Placeholders(t *testing.T) {
 		tmpl string
 		want string
 	}{
-		{"{artist}/{title} [{youtube_url}]", "Artist/Song [https___www.youtube.com_watch_v=abc12345678]"},
+		{"{artist}/{title} [{youtube_url}]", "Artist/Song [httpswww.youtube.comwatchv=abc12345678]"},
 		{"{artist} - {view_count}", "Artist - 1234567"},
 		{"{date}/{title}", "2024-01-15/Song"},
 	}
 	for _, c := range cases {
 		got := ApplyTemplate(c.tmpl, m)
 		if got != c.want {
-			if !strings.Contains(got, "abc12345678") {
-				t.Errorf("tmpl=%q got=%q want containing %q", c.tmpl, got, c.want)
-			}
+			t.Errorf("tmpl=%q\n  got  %q\n  want %q", c.tmpl, got, c.want)
 		}
 	}
 }
