@@ -189,3 +189,22 @@ func qualityRankOf(q string) int {
 	}
 	return 0
 }
+
+// ResolveFallbackOrder returns the effective quality try-order.
+// If order is non-empty it is returned as-is; otherwise a default chain
+// rooted at preferred is synthesized.
+func ResolveFallbackOrder(order []string, preferred string) []string {
+	if len(order) > 0 {
+		out := make([]string, len(order))
+		copy(out, order)
+		return out
+	}
+	tiers := []string{"highest", "24bit", "16bit"}
+	out := []string{preferred}
+	for _, t := range tiers {
+		if t != preferred {
+			out = append(out, t)
+		}
+	}
+	return out
+}

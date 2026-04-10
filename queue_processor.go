@@ -293,7 +293,8 @@ func (q *Queue) processItem(id string) {
 		slog.WarnContext(itemCtx, "failed to create HTTP client with proxy, falling back to default", "err", err)
 		httpClient, _ = NewHTTPClient(downloadTimeout, "")
 	}
-	tidalHifiService := NewTidalHifiService(httpClient, config.PreferredQuality)
+	qualityOrder := ResolveFallbackOrder(config.QualityFallbackOrder, config.PreferredQuality)
+	tidalHifiService := NewTidalHifiService(httpClient, qualityOrder[0])
 	lucidaService := NewLucidaService(httpClient)
 	orpheusService := NewOrpheusDLService()
 
