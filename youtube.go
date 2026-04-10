@@ -1,6 +1,7 @@
 package core
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -69,6 +70,18 @@ var youtubeThumbnailBase = "https://i.ytimg.com/vi"
 
 var thumbnailHTTPClient = &http.Client{Timeout: 5 * time.Second}
 var assetHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
+// ytdlpBinary is the yt-dlp executable path. Override in tests via SetYtdlpBinaryForTests.
+var ytdlpBinary = "yt-dlp"
+
+// SetYtdlpBinaryForTests allows tests and env-based overrides to set the binary path.
+func SetYtdlpBinaryForTests(path string) { ytdlpBinary = path }
+
+func init() {
+	if v := os.Getenv("YOUFLAC_YTDLP_BIN"); v != "" {
+		ytdlpBinary = v
+	}
+}
 
 // GetThumbnailMax returns the highest-resolution thumbnail URL available
 // for a YouTube video, probing maxresdefault → sddefault → hqdefault via HEAD.
@@ -991,6 +1004,97 @@ func downloadFile(url, path string) error {
 	defer f.Close()
 	_, err = io.Copy(f, resp.Body)
 	return err
+}
+
+// ChannelOpts configures how FetchChannelUploads streams results.
+type ChannelOpts struct {
+	IncludeShorts bool
+	OnlyLongForm  bool   // only items with duration >= 300s
+	PlaylistID    string // specific playlist ID instead of /videos
+	MaxItems      int    // 0 = unlimited
+}
+
+// VideoInfoLite is a lightweight subset of VideoInfo used for channel streaming.
+type VideoInfoLite struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Duration   float64 `json:"duration"`
+	UploadDate string  `json:"upload_date"`
+	IsShort    bool    `json:"is_short"`
+	Thumbnail  string  `json:"thumbnail"`
+}
+
+// FetchChannelUploads streams the uploads of a YouTube channel via yt-dlp --flat-playlist.
+// Results are pushed onto the returned channel as they arrive; errors on the error channel.
+// Both channels are closed when the stream ends or ctx is cancelled.
+func FetchChannelUploads(ctx context.Context, channelURL string, opts ChannelOpts) (<-chan VideoInfoLite, <-chan error) {
+	results := make(chan VideoInfoLite, 32)
+	errc := make(chan error, 1)
+
+	go func() {
+		defer close(results)
+		defer close(errc)
+
+		// Build target URL
+		target := channelURL
+		if opts.PlaylistID != "" {
+			target = "https://www.youtube.com/playlist?list=" + opts.PlaylistID
+		} else if !strings.Contains(channelURL, "/videos") && !strings.Contains(channelURL, "playlist?") {
+			target = strings.TrimRight(channelURL, "/") + "/videos"
+		}
+
+		args := []string{"--flat-playlist", "-j", "--no-warnings"}
+		if opts.MaxItems > 0 {
+			args = append(args, "--playlist-end", fmt.Sprintf("%d", opts.MaxItems))
+		}
+		args = append(args, target)
+
+		cmd := exec.CommandContext(ctx, ytdlpBinary, args...)
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			errc <- fmt.Errorf("stdout pipe: %w", err)
+			return
+		}
+		if err := cmd.Start(); err != nil {
+			errc <- fmt.Errorf("yt-dlp start: %w", err)
+			return
+		}
+
+		count := 0
+		scanner := bufio.NewScanner(stdout)
+	loop:
+		for scanner.Scan() {
+			if ctx.Err() != nil {
+				break loop
+			}
+			line := scanner.Bytes()
+			var v VideoInfoLite
+			if err := json.Unmarshal(line, &v); err != nil {
+				slog.Debug("ytdlp: skipping malformed line", "line", string(line))
+				continue
+			}
+			v.IsShort = v.Duration > 0 && v.Duration < 60
+
+			if opts.OnlyLongForm && v.Duration < 300 {
+				continue
+			}
+
+			select {
+			case results <- v:
+			case <-ctx.Done():
+				break loop
+			}
+			count++
+			if opts.MaxItems > 0 && count >= opts.MaxItems {
+				break loop
+			}
+		}
+
+		cmd.Process.Kill() //nolint:errcheck
+		cmd.Wait()         //nolint:errcheck
+	}()
+
+	return results, errc
 }
 
 // sanitizeVideoFileName removes invalid characters from filename (local helper)
