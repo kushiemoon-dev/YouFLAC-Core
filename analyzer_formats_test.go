@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -15,33 +16,33 @@ func TestAnalyzeAudio_ExtendedFormats(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
-		ext       string
-		codec     string
-		extraArgs []string
+		ext        string
+		codecPart  string // substring expected in analysis.Codec (as reported by ffprobe)
+		extraArgs  []string
 	}{
 		{
 			ext:       "flac",
-			codec:     "flac",
+			codecPart: "flac",
 			extraArgs: []string{"-c:a", "flac"},
 		},
 		{
 			ext:       "mp3",
-			codec:     "mp3",
+			codecPart: "mp3",
 			extraArgs: []string{"-c:a", "libmp3lame", "-q:a", "2"},
 		},
 		{
 			ext:       "m4a",
-			codec:     "m4a",
+			codecPart: "aac", // AAC codec inside M4A container
 			extraArgs: []string{"-c:a", "aac", "-b:a", "128k"},
 		},
 		{
 			ext:       "ogg",
-			codec:     "ogg",
+			codecPart: "vorbis",
 			extraArgs: []string{"-c:a", "libvorbis", "-q:a", "4"},
 		},
 		{
 			ext:       "wav",
-			codec:     "wav",
+			codecPart: "pcm", // pcm_s16le or similar
 			extraArgs: []string{"-c:a", "pcm_s16le"},
 		},
 	}
@@ -73,6 +74,9 @@ func TestAnalyzeAudio_ExtendedFormats(t *testing.T) {
 			}
 			if analysis.Codec == "" {
 				t.Error("Codec is empty, want non-empty")
+			}
+			if !strings.Contains(strings.ToLower(analysis.Codec), tt.codecPart) {
+				t.Errorf("Codec = %q, want to contain %q", analysis.Codec, tt.codecPart)
 			}
 			t.Logf("%s: codec=%s sampleRate=%d bitDepth=%d", tt.ext, analysis.Codec, analysis.SampleRate, analysis.BitsPerSample)
 		})
