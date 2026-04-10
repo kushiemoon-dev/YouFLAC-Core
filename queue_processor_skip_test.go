@@ -71,4 +71,7 @@ func TestProcessItem_SetsSkippedStatus(t *testing.T) {
 	if item.Progress != 100 {
 		t.Errorf("expected progress 100, got %d", item.Progress)
 	}
+	if item.Stage != "Skipped (existing file)" {
+		t.Errorf("expected Stage %q, got %q", "Skipped (existing file)", item.Stage)
+	}
 }

@@ -96,7 +96,7 @@ type DownloadRequest struct {
 
 // QueueEvent is emitted to frontend for progress updates
 type QueueEvent struct {
-	Type     string      `json:"type"` // "added", "updated", "removed", "completed", "error"
+	Type     string      `json:"type"` // "added", "updated", "removed", "completed", "skipped", "error"
 	ItemID   string      `json:"itemId"`
 	Item     *QueueItem  `json:"item,omitempty"`
 	Progress int         `json:"progress,omitempty"`
@@ -335,7 +335,7 @@ func (q *Queue) UpdateStatus(id string, status QueueStatus, progress int, stage 
 		if stage != "" {
 			item.Stage = stage
 		}
-		if status == StatusComplete {
+		if status == StatusComplete || status == StatusSkipped {
 			item.CompletedAt = time.Now()
 		}
 	})

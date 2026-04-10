@@ -199,7 +199,7 @@ func (c *Core) dispatch(method string, params json.RawMessage) (interface{}, err
 		completed := c.queue.GetQueue()
 		var items []QueueItem
 		for _, it := range completed {
-			if it.Status == StatusComplete {
+			if it.Status == StatusComplete || it.Status == StatusSkipped {
 				items = append(items, it)
 			}
 		}
