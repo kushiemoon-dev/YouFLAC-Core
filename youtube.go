@@ -514,8 +514,21 @@ func SearchYouTubeWithCookies(query string, maxResults int, cookiesBrowser strin
 	return results, nil
 }
 
-// GetVideoMetadata fetches video metadata using yt-dlp
+// GetVideoMetadata fetches video metadata, consulting the LRU cache first.
 func GetVideoMetadata(videoID string) (*VideoInfo, error) {
+	if v, ok := defaultFetchCache.Get(videoID); ok {
+		return v, nil
+	}
+	info, err := fetchVideoMetadataUncached(videoID)
+	if err != nil {
+		return nil, err
+	}
+	defaultFetchCache.Put(videoID, info)
+	return info, nil
+}
+
+// fetchVideoMetadataUncached fetches video metadata using yt-dlp, bypassing the cache.
+func fetchVideoMetadataUncached(videoID string) (*VideoInfo, error) {
 	ctx := context.Background()
 
 	videoURL := fmt.Sprintf("https://www.youtube.com/watch?v=%s", videoID)

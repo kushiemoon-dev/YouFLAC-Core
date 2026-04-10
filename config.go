@@ -61,6 +61,9 @@ type Config struct {
 	QobuzAppID              string  `json:"qobuzAppId"`              // Qobuz application ID
 	QobuzAppSecret          string  `json:"qobuzAppSecret"`          // Qobuz application secret
 	QobuzUserToken          string  `json:"qobuzUserToken"`          // Qobuz user authentication token
+	FetchCacheEnabled    bool     `json:"fetchCacheEnabled"`
+	FetchCacheTTLSeconds int      `json:"fetchCacheTtlSeconds"`
+	QualityFallbackOrder []string `json:"qualityFallbackOrder"`
 }
 
 var defaultConfig = Config{
@@ -88,6 +91,9 @@ var defaultConfig = Config{
 	ArtistSeparator:        "; ",
 	AutoQualityFallback:    true,
 	SearchResultsLimit:     10,
+	FetchCacheEnabled:    true,
+	FetchCacheTTLSeconds: 3600,
+	QualityFallbackOrder: []string{"highest", "24bit", "16bit"},
 }
 
 // GetConfigPath returns the path to the config file
@@ -232,6 +238,15 @@ func LoadConfigWithEnv() (*Config, error) {
 			config.DownloadTimeoutMinutes = f
 		}
 	}
+	if v := os.Getenv("FETCH_CACHE_ENABLED"); v != "" {
+		config.FetchCacheEnabled = strings.ToLower(v) == "true" || v == "1"
+	}
+	if v := os.Getenv("FETCH_CACHE_TTL"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			config.FetchCacheTTLSeconds = n
+		}
+	}
+	ConfigureFetchCache(config.FetchCacheEnabled, config.FetchCacheTTLSeconds)
 
 	return config, nil
 }
