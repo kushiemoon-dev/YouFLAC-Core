@@ -7,6 +7,34 @@ import (
 	"testing"
 )
 
+func TestParseChannelAssetsJSON(t *testing.T) {
+	jsonBody := `{
+		"uploader_id": "UCabc",
+		"channel_url": "https://youtube.com/channel/UCabc",
+		"channel": "Test Channel",
+		"thumbnails": [
+			{"id": "avatar_uncropped", "url": "https://yt/avatar.jpg", "preference": 1},
+			{"id": "banner_uncropped", "url": "https://yt/banner.jpg", "preference": 2}
+		]
+	}`
+	assets, err := parseChannelAssetsJSON([]byte(jsonBody))
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if assets.ChannelID != "UCabc" {
+		t.Errorf("channelID=%q", assets.ChannelID)
+	}
+	if assets.ChannelName != "Test Channel" {
+		t.Errorf("name=%q", assets.ChannelName)
+	}
+	if assets.AvatarURL != "https://yt/avatar.jpg" {
+		t.Errorf("avatar=%q", assets.AvatarURL)
+	}
+	if assets.BannerURL != "https://yt/banner.jpg" {
+		t.Errorf("banner=%q", assets.BannerURL)
+	}
+}
+
 func TestGetThumbnailMax(t *testing.T) {
 	tests := []struct {
 		name       string

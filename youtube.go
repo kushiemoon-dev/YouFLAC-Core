@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -896,6 +898,94 @@ func buildVideoOnlyFormatSelector(quality string) string {
 	default:
 		return "bestvideo"
 	}
+}
+
+// ChannelAssets holds downloadable assets of a YouTube channel.
+type ChannelAssets struct {
+	ChannelID   string `json:"channelId"`
+	ChannelName string `json:"channelName"`
+	AvatarURL   string `json:"avatarUrl"`
+	BannerURL   string `json:"bannerUrl"`
+}
+
+func parseChannelAssetsJSON(body []byte) (*ChannelAssets, error) {
+	var raw struct {
+		UploaderID string `json:"uploader_id"`
+		Channel    string `json:"channel"`
+		Thumbnails []struct {
+			ID  string `json:"id"`
+			URL string `json:"url"`
+		} `json:"thumbnails"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, fmt.Errorf("parse channel JSON: %w", err)
+	}
+	a := &ChannelAssets{
+		ChannelID:   raw.UploaderID,
+		ChannelName: raw.Channel,
+	}
+	for _, th := range raw.Thumbnails {
+		id := strings.ToLower(th.ID)
+		switch {
+		case strings.Contains(id, "avatar") && a.AvatarURL == "":
+			a.AvatarURL = th.URL
+		case strings.Contains(id, "banner") && a.BannerURL == "":
+			a.BannerURL = th.URL
+		}
+	}
+	return a, nil
+}
+
+// GetChannelAssets invokes yt-dlp to fetch channel metadata and returns asset URLs.
+func GetChannelAssets(channelURL string) (*ChannelAssets, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "yt-dlp", "-J", "--skip-download", "--playlist-items", "0", channelURL)
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("yt-dlp failed: %w", err)
+	}
+	return parseChannelAssetsJSON(out)
+}
+
+// DownloadChannelAssets downloads avatar + banner to baseDir/channels/{channelID}/.
+func DownloadChannelAssets(assets *ChannelAssets, baseDir string) (string, error) {
+	if assets == nil || assets.ChannelID == "" {
+		return "", fmt.Errorf("invalid assets")
+	}
+	dir := filepath.Join(baseDir, "channels", assets.ChannelID)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", err
+	}
+	if assets.AvatarURL != "" {
+		if err := downloadFile(assets.AvatarURL, filepath.Join(dir, "avatar.jpg")); err != nil {
+			slog.Warn("avatar download failed", "err", err)
+		}
+	}
+	if assets.BannerURL != "" {
+		if err := downloadFile(assets.BannerURL, filepath.Join(dir, "banner.jpg")); err != nil {
+			slog.Warn("banner download failed", "err", err)
+		}
+	}
+	return dir, nil
+}
+
+func downloadFile(url, path string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("status %d", resp.StatusCode)
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = io.Copy(f, resp.Body)
+	return err
 }
 
 // sanitizeVideoFileName removes invalid characters from filename (local helper)
