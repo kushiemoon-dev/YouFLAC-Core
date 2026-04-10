@@ -65,6 +65,9 @@ type QueueItem struct {
 	MatchCandidates  []AudioCandidate  `json:"matchCandidates,omitempty"`
 	MatchDiagnostics *MatchDiagnostics `json:"matchDiagnostics,omitempty"`
 
+	// Per-item captured logs (not persisted — populated on demand)
+	Logs []LogEntry `json:"logs,omitempty"`
+
 	// Cancel channel (not serialized)
 	cancelFunc context.CancelFunc `json:"-"`
 }

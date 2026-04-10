@@ -131,12 +131,13 @@ func InitLogger(logLevel string) {
 
 	writer := &bufferingWriter{underlying: os.Stdout}
 
-	var handler slog.Handler
+	var base slog.Handler
 	if os.Getenv("LOG_FORMAT") == "json" {
-		handler = slog.NewJSONHandler(writer, opts)
+		base = slog.NewJSONHandler(writer, opts)
 	} else {
-		handler = slog.NewTextHandler(writer, opts)
+		base = slog.NewTextHandler(writer, opts)
 	}
+	handler := NewItemLogHandler(base)
 
 	logger := slog.New(handler)
 	slog.SetDefault(logger)
