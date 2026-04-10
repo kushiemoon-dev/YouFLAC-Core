@@ -163,7 +163,7 @@ func (q *Queue) GetStats() QueueStats {
 			stats.Pending++
 		case StatusFetchingInfo, StatusDownloadingVideo, StatusDownloadingAudio, StatusMuxing, StatusOrganizing:
 			stats.Active++
-		case StatusComplete:
+		case StatusComplete, StatusSkipped:
 			stats.Completed++
 		case StatusError:
 			stats.Failed++

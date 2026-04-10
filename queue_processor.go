@@ -171,19 +171,20 @@ func (q *Queue) processItem(id string) {
 
 			// Check if it's the same path (already in correct location)
 			if existingFile.Path == targetPath {
-				// Already in correct location, just mark complete
+				// Already in correct location, mark as skipped so the frontend
+				// can distinguish this from a freshly completed download.
 				q.updateItem(id, func(item *QueueItem) {
-					item.Status = StatusComplete
+					item.Status = StatusSkipped
 					item.Progress = 100
-					item.Stage = "Skipped (already exists)"
+					item.Stage = "Skipped (existing file)"
 					item.OutputPath = existingFile.Path
 					item.CompletedAt = time.Now()
 				})
 				q.emit(QueueEvent{
-					Type:     "completed",
+					Type:     "skipped",
 					ItemID:   id,
 					Progress: 100,
-					Status:   StatusComplete,
+					Status:   StatusSkipped,
 				})
 				slog.InfoContext(itemCtx, "skipped, already exists", "path", existingFile.Path)
 				return

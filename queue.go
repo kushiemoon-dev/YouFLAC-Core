@@ -21,6 +21,7 @@ const (
 	StatusMuxing           QueueStatus = "muxing"
 	StatusOrganizing       QueueStatus = "organizing"
 	StatusComplete         QueueStatus = "complete"
+	StatusSkipped          QueueStatus = "skipped"
 	StatusError            QueueStatus = "error"
 	StatusCancelled        QueueStatus = "cancelled"
 	StatusPaused           QueueStatus = "paused"
@@ -516,7 +517,7 @@ func (q *Queue) ClearCompleted() int {
 	filtered := make([]QueueItem, 0)
 	removed := 0
 	for _, item := range q.items {
-		if item.Status != StatusComplete && item.Status != StatusError && item.Status != StatusCancelled {
+		if item.Status != StatusComplete && item.Status != StatusSkipped && item.Status != StatusError && item.Status != StatusCancelled {
 			filtered = append(filtered, item)
 		} else {
 			removed++
