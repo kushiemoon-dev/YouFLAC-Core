@@ -19,6 +19,7 @@ type LogEntry struct {
 	Time    string `json:"time"`    // HH:MM:SS
 	Level   string `json:"level"`   // DEBUG, INFO, WARN, ERROR
 	Message string `json:"message"`
+	Fields  string `json:"fields,omitempty"`
 }
 
 // logBuffer is the in-process ring buffer of recent log entries.

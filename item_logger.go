@@ -32,15 +32,19 @@ type itemRing struct {
 	seq     int64
 }
 
-func (r *itemRing) add(level, msg string) {
+func (r *itemRing) add(level, msg, fields string, t time.Time) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.seq++
+	if t.IsZero() {
+		t = time.Now()
+	}
 	e := LogEntry{
 		ID:      r.seq,
-		Time:    time.Now().Format("15:04:05"),
+		Time:    t.Format("15:04:05"),
 		Level:   strings.ToUpper(level),
 		Message: msg,
+		Fields:  fields,
 	}
 	if len(r.entries) >= maxItemLogEntries {
 		copy(r.entries, r.entries[1:])
@@ -115,7 +119,7 @@ func (h *ItemLogHandler) Handle(ctx context.Context, r slog.Record) error {
 		ring, ok := itemLoggers[id]
 		itemLoggersMu.RUnlock()
 		if ok {
-			ring.add(r.Level.String(), r.Message)
+			ring.add(r.Level.String(), r.Message, formatAttrs(r), r.Time)
 		}
 		// Only forward to the next handler if it would have accepted this level.
 		if !h.next.Enabled(ctx, r.Level) {
@@ -131,4 +135,25 @@ func (h *ItemLogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 
 func (h *ItemLogHandler) WithGroup(name string) slog.Handler {
 	return &ItemLogHandler{next: h.next.WithGroup(name)}
+}
+
+// formatAttrs flattens a slog.Record's attributes into a space-separated
+// "key=value" string for inclusion in the per-item ring buffer.
+func formatAttrs(r slog.Record) string {
+	if r.NumAttrs() == 0 {
+		return ""
+	}
+	var b strings.Builder
+	first := true
+	r.Attrs(func(a slog.Attr) bool {
+		if !first {
+			b.WriteByte(' ')
+		}
+		first = false
+		b.WriteString(a.Key)
+		b.WriteByte('=')
+		b.WriteString(a.Value.String())
+		return true
+	})
+	return b.String()
 }
