@@ -67,18 +67,20 @@ var (
 
 var youtubeThumbnailBase = "https://i.ytimg.com/vi"
 
+var thumbnailHTTPClient = &http.Client{Timeout: 5 * time.Second}
+var assetHTTPClient = &http.Client{Timeout: 30 * time.Second}
+
 // GetThumbnailMax returns the highest-resolution thumbnail URL available
 // for a YouTube video, probing maxresdefault → sddefault → hqdefault via HEAD.
 func GetThumbnailMax(videoID string) string {
 	candidates := []string{"maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"}
-	client := &http.Client{Timeout: 5 * time.Second}
 	for _, c := range candidates {
 		u := fmt.Sprintf("%s/%s/%s", youtubeThumbnailBase, videoID, c)
 		req, err := http.NewRequest("HEAD", u, nil)
 		if err != nil {
 			continue
 		}
-		resp, err := client.Do(req)
+		resp, err := thumbnailHTTPClient.Do(req)
 		if err != nil {
 			continue
 		}
@@ -938,6 +940,9 @@ func parseChannelAssetsJSON(body []byte) (*ChannelAssets, error) {
 
 // GetChannelAssets invokes yt-dlp to fetch channel metadata and returns asset URLs.
 func GetChannelAssets(channelURL string) (*ChannelAssets, error) {
+	if !IsChannelURL(channelURL) {
+		return nil, fmt.Errorf("invalid channel URL: %q", channelURL)
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "yt-dlp", "-J", "--skip-download", "--playlist-items", "0", channelURL)
@@ -971,7 +976,7 @@ func DownloadChannelAssets(assets *ChannelAssets, baseDir string) (string, error
 }
 
 func downloadFile(url, path string) error {
-	resp, err := http.Get(url)
+	resp, err := assetHTTPClient.Get(url)
 	if err != nil {
 		return err
 	}

@@ -300,7 +300,21 @@ func (q *Queue) processItem(id string) {
 	}
 	qualityOrder := ResolveFallbackOrder(config.QualityFallbackOrder, config.PreferredQuality)
 	tidalHifiService := NewTidalHifiService(httpClient, qualityOrder[0])
-	lucidaService := NewLucidaService(httpClient)
+
+	// Wire proxy fallback for Lucida: when AutoProxyFallback is enabled and a proxy
+	// is configured, use a direct client for the first attempt and the proxy client
+	// as fallback on 403/429/451 responses.
+	var lucidaService *LucidaService
+	if config.AutoProxyFallback && config.ProxyURL != "" {
+		directClient, dcErr := NewHTTPClient(downloadTimeout, "")
+		if dcErr != nil {
+			directClient, _ = NewHTTPClient(downloadTimeout, "")
+		}
+		lucidaService = NewLucidaServiceWithFallback(directClient, httpClient)
+	} else {
+		lucidaService = NewLucidaService(httpClient)
+	}
+
 	orpheusService := NewOrpheusDLService()
 
 	// Diagnostics tracking
