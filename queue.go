@@ -21,6 +21,7 @@ const (
 	StatusMuxing           QueueStatus = "muxing"
 	StatusOrganizing       QueueStatus = "organizing"
 	StatusComplete         QueueStatus = "complete"
+	StatusSkipped          QueueStatus = "skipped"
 	StatusError            QueueStatus = "error"
 	StatusCancelled        QueueStatus = "cancelled"
 	StatusPaused           QueueStatus = "paused"
@@ -65,6 +66,9 @@ type QueueItem struct {
 	MatchCandidates  []AudioCandidate  `json:"matchCandidates,omitempty"`
 	MatchDiagnostics *MatchDiagnostics `json:"matchDiagnostics,omitempty"`
 
+	// Per-item captured logs (not persisted — populated on demand)
+	Logs []LogEntry `json:"logs,omitempty"`
+
 	// Cancel channel (not serialized)
 	cancelFunc context.CancelFunc `json:"-"`
 }
@@ -92,7 +96,7 @@ type DownloadRequest struct {
 
 // QueueEvent is emitted to frontend for progress updates
 type QueueEvent struct {
-	Type     string      `json:"type"` // "added", "updated", "removed", "completed", "error"
+	Type     string      `json:"type"` // "added", "updated", "removed", "completed", "skipped", "error"
 	ItemID   string      `json:"itemId"`
 	Item     *QueueItem  `json:"item,omitempty"`
 	Progress int         `json:"progress,omitempty"`
@@ -331,7 +335,7 @@ func (q *Queue) UpdateStatus(id string, status QueueStatus, progress int, stage 
 		if stage != "" {
 			item.Stage = stage
 		}
-		if status == StatusComplete {
+		if status == StatusComplete || status == StatusSkipped {
 			item.CompletedAt = time.Now()
 		}
 	})
@@ -513,7 +517,7 @@ func (q *Queue) ClearCompleted() int {
 	filtered := make([]QueueItem, 0)
 	removed := 0
 	for _, item := range q.items {
-		if item.Status != StatusComplete && item.Status != StatusError && item.Status != StatusCancelled {
+		if item.Status != StatusComplete && item.Status != StatusSkipped && item.Status != StatusError && item.Status != StatusCancelled {
 			filtered = append(filtered, item)
 		} else {
 			removed++

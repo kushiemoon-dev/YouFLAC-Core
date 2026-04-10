@@ -24,6 +24,7 @@ type HistoryEntry struct {
 	Thumbnail   string    `json:"thumbnail,omitempty"`
 	Duration    float64   `json:"duration,omitempty"`
 	FileSize    int64     `json:"fileSize"`
+	Explicit    bool      `json:"explicit,omitempty"`
 	CompletedAt time.Time `json:"completedAt"`
 	Status      string    `json:"status"` // complete, error
 	Error       string    `json:"error,omitempty"`
@@ -113,6 +114,7 @@ func (h *History) AddFromQueueItem(item *QueueItem, status string, errorMsg stri
 		Thumbnail:   item.Thumbnail,
 		Duration:    item.Duration,
 		FileSize:    item.FileSize,
+		Explicit:    item.Explicit,
 		CompletedAt: time.Now(),
 		Status:      status,
 		Error:       errorMsg,

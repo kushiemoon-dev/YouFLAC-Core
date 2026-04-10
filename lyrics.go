@@ -3,7 +3,10 @@ package core
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
+	"html"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -50,6 +53,140 @@ type lrclibSearchResult struct {
 // lyricsHTTPClient is a dedicated HTTP client for lyrics API calls
 var lyricsHTTPClient = &http.Client{
 	Timeout: 15 * time.Second,
+}
+
+// youtubeTimedTextURL is the base URL for YouTube timedtext API (overridable in tests)
+var youtubeTimedTextURL = "https://www.youtube.com/api/timedtext"
+
+// timedTextEntry represents a single timed text entry in YouTube XML
+type timedTextEntry struct {
+	Start float64 `xml:"start,attr"`
+	Dur   float64 `xml:"dur,attr"`
+	Text  string  `xml:",chardata"`
+}
+
+// timedTextTranscript is the root XML element
+type timedTextTranscript struct {
+	Entries []timedTextEntry `xml:"text"`
+}
+
+// parseTimedText parses YouTube timedtext XML into plain text and LRC-format synced lyrics
+func parseTimedText(xmlBody string) (plainText string, syncedLRC string, err error) {
+	var transcript timedTextTranscript
+	if err = xml.Unmarshal([]byte(xmlBody), &transcript); err != nil {
+		return "", "", fmt.Errorf("failed to parse timedtext XML: %w", err)
+	}
+
+	var plainLines []string
+	var lrcLines []string
+
+	for _, entry := range transcript.Entries {
+		text := html.UnescapeString(entry.Text)
+		// Strip any embedded XML/HTML tags (e.g. <font color="...">)
+		text = stripXMLTags(text)
+		text = strings.TrimSpace(text)
+		if text == "" {
+			continue
+		}
+
+		plainLines = append(plainLines, text)
+
+		// Format LRC timestamp: [MM:SS.cc]
+		totalSecs := entry.Start
+		mins := int(totalSecs) / 60
+		secs := totalSecs - float64(mins*60)
+		// centiseconds: fractional seconds * 100, truncated to 2 digits
+		cs := int(secs*100) % 100
+		wholeSecs := int(secs)
+		lrcLines = append(lrcLines, fmt.Sprintf("[%02d:%02d.%02d]%s", mins, wholeSecs, cs, text))
+	}
+
+	plainText = strings.Join(plainLines, "\n")
+	if len(lrcLines) > 0 {
+		syncedLRC = strings.Join(lrcLines, "\n") + "\n"
+	}
+	return plainText, syncedLRC, nil
+}
+
+// stripXMLTags removes any XML/HTML tags from a string
+func stripXMLTags(s string) string {
+	var result strings.Builder
+	inTag := false
+	for _, ch := range s {
+		if ch == '<' {
+			inTag = true
+			continue
+		}
+		if ch == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			result.WriteRune(ch)
+		}
+	}
+	return result.String()
+}
+
+// FetchYouTubeCaptions fetches captions for a YouTube video by video ID
+func FetchYouTubeCaptions(videoID string) (*LyricsResult, error) {
+	reqURL := youtubeTimedTextURL + "?v=" + videoID + "&lang=en&fmt=xml"
+
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build request: %w", err)
+	}
+	req.Header.Set("User-Agent", "YouFlac/1.0")
+
+	resp, err := lyricsHTTPClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("youtube captions request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 404 {
+		return nil, fmt.Errorf("youtube captions not found for video %s", videoID)
+	}
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("youtube captions not available: status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	plain, synced, err := parseTimedText(string(body))
+	if err != nil {
+		return nil, err
+	}
+
+	return &LyricsResult{
+		PlainText:    plain,
+		SyncedLyrics: synced,
+		Source:       "youtube-captions",
+		HasSync:      synced != "",
+	}, nil
+}
+
+// FetchLyricsWithFallback tries LRCLIB first, then YouTube captions as fallback
+func FetchLyricsWithFallback(artist, title, album, videoID string) (*LyricsResult, error) {
+	slog.Debug("fetching lyrics via LRCLIB", "artist", artist, "title", title)
+	result, err := FetchLyricsWithAlbum(artist, title, album)
+	if err == nil {
+		return result, nil
+	}
+
+	if videoID != "" {
+		slog.Debug("LRCLIB failed, trying YouTube captions", "videoID", videoID, "err", err)
+		result, err = FetchYouTubeCaptions(videoID)
+		if err == nil {
+			return result, nil
+		}
+		slog.Debug("YouTube captions failed", "err", err)
+	}
+
+	return nil, fmt.Errorf("lyrics not found for %s - %s", artist, title)
 }
 
 // FetchLyrics fetches lyrics from LRCLIB for a track
@@ -297,7 +434,11 @@ func SaveLRCFile(lyrics *LyricsResult, mediaFilePath string) (string, error) {
 		content.WriteString(fmt.Sprintf("[length:%02d:%02d]\n", mins, secs))
 	}
 	content.WriteString("[by:YouFlac]\n")
-	content.WriteString("[re:LRCLIB]\n\n")
+	reSource := lyrics.Source
+	if reSource == "" {
+		reSource = "LRCLIB"
+	}
+	content.WriteString(fmt.Sprintf("[re:%s]\n\n", reSource))
 
 	// Add synced lyrics
 	content.WriteString(lyrics.SyncedLyrics)

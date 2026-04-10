@@ -1,6 +1,8 @@
 package core
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -109,6 +111,30 @@ func TestGenerateM3U8_RelativePaths(t *testing.T) {
 	}
 	if !strings.Contains(content, "subdir/track.mkv") {
 		t.Errorf("expected relative path subdir/track.mkv in:\n%s", content)
+	}
+}
+
+func TestGenerateM3U8_WithThumbnail(t *testing.T) {
+	dir := t.TempDir()
+	items := []QueueItem{
+		{Title: "T1", Artist: "A1", OutputPath: filepath.Join(dir, "a.mkv"), Duration: 120},
+	}
+	os.WriteFile(items[0].OutputPath, []byte{}, 0644)
+
+	thumbSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/jpeg")
+		w.Write([]byte("fakejpg"))
+	}))
+	defer thumbSrv.Close()
+
+	if err := GenerateM3U8WithCover(items, dir, "MyList", thumbSrv.URL); err != nil {
+		t.Fatalf("GenerateM3U8WithCover: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "MyList.m3u8")); err != nil {
+		t.Errorf("m3u8 missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "MyList.jpg")); err != nil {
+		t.Errorf("jpg missing: %v", err)
 	}
 }
 
