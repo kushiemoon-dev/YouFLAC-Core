@@ -2,10 +2,12 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 )
 
@@ -28,26 +30,9 @@ var SupportedBitDepths = []int{16, 24, 32}
 // SupportedResampleFormats lists the output formats accepted by Resample.
 var SupportedResampleFormats = []string{"flac", "wav", "alac"}
 
-func intInSlice(n int, s []int) bool {
-	for _, v := range s {
-		if v == n {
-			return true
-		}
-	}
-	return false
-}
-
-func strInSlice(v string, s []string) bool {
-	for _, x := range s {
-		if x == v {
-			return true
-		}
-	}
-	return false
-}
-
 // Resample converts an audio file to the specified sample rate and bit depth.
-func Resample(opts ResampleOptions) error {
+// ctx is used to cancel the underlying ffmpeg process.
+func Resample(ctx context.Context, opts ResampleOptions) error {
 	if opts.InputPath == "" {
 		return fmt.Errorf("inputPath required")
 	}
@@ -57,14 +42,14 @@ func Resample(opts ResampleOptions) error {
 	if opts.OutputPath == "" {
 		return fmt.Errorf("outputPath required")
 	}
-	if !intInSlice(opts.SampleRate, SupportedSampleRates) {
+	if !slices.Contains(SupportedSampleRates, opts.SampleRate) {
 		return fmt.Errorf("unsupported sample rate: %d", opts.SampleRate)
 	}
-	if !intInSlice(opts.BitDepth, SupportedBitDepths) {
+	if !slices.Contains(SupportedBitDepths, opts.BitDepth) {
 		return fmt.Errorf("unsupported bit depth: %d", opts.BitDepth)
 	}
 	format := strings.ToLower(opts.Format)
-	if !strInSlice(format, SupportedResampleFormats) {
+	if !slices.Contains(SupportedResampleFormats, format) {
 		return fmt.Errorf("unsupported format: %s", opts.Format)
 	}
 	if err := os.MkdirAll(filepath.Dir(opts.OutputPath), 0755); err != nil {
@@ -95,11 +80,11 @@ func Resample(opts ResampleOptions) error {
 	}
 	args = append(args, "-vn", opts.OutputPath)
 
-	cmd := exec.Command(GetFFmpegPath(), args...)
+	cmd := exec.CommandContext(ctx, GetFFmpegPath(), args...)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("ffmpeg resample failed: %v - %s", err, stderr.String())
+		return fmt.Errorf("ffmpeg resample failed: %w - %s", err, stderr.String())
 	}
 	return nil
 }

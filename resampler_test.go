@@ -2,6 +2,7 @@ package core
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -39,7 +40,7 @@ func generateSineWave(t *testing.T, path string, sampleRate, bitDepth int, secon
 }
 
 func TestResample_ValidateMissingInput(t *testing.T) {
-	err := Resample(ResampleOptions{
+	err := Resample(context.Background(), ResampleOptions{
 		InputPath:  "/nonexistent/file.wav",
 		OutputPath: filepath.Join(t.TempDir(), "out.flac"),
 		SampleRate: 48000,
@@ -54,7 +55,7 @@ func TestResample_ValidateMissingInput(t *testing.T) {
 func TestResample_ValidateUnsupportedRate(t *testing.T) {
 	in := filepath.Join(t.TempDir(), "in.wav")
 	generateSineWave(t, in, 44100, 16, 0.5)
-	err := Resample(ResampleOptions{
+	err := Resample(context.Background(), ResampleOptions{
 		InputPath:  in,
 		OutputPath: filepath.Join(t.TempDir(), "out.flac"),
 		SampleRate: 12345,
@@ -74,7 +75,7 @@ func TestResample_Upsample44kTo96k(t *testing.T) {
 	in := filepath.Join(tmp, "in.wav")
 	out := filepath.Join(tmp, "out.flac")
 	generateSineWave(t, in, 44100, 16, 1.0)
-	if err := Resample(ResampleOptions{
+	if err := Resample(context.Background(), ResampleOptions{
 		InputPath:  in,
 		OutputPath: out,
 		SampleRate: 96000,
@@ -103,7 +104,7 @@ func TestResample_Downsample96kTo44kWithDither(t *testing.T) {
 	in := filepath.Join(tmp, "in.wav")
 	out := filepath.Join(tmp, "out.wav")
 	generateSineWave(t, in, 96000, 24, 1.0)
-	if err := Resample(ResampleOptions{
+	if err := Resample(context.Background(), ResampleOptions{
 		InputPath:  in,
 		OutputPath: out,
 		SampleRate: 44100,
