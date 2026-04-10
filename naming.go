@@ -29,6 +29,7 @@ type Metadata struct {
 	DiscNumber  int      `json:"discNumber,omitempty"`
 	TotalDiscs  int      `json:"totalDiscs,omitempty"`
 	Copyright   string   `json:"copyright,omitempty"`
+	Explicit    bool     `json:"explicit,omitempty"`
 	Label       string   `json:"label,omitempty"`
 	Description string   `json:"description,omitempty"`
 	YouTubeID   string   `json:"youtubeId,omitempty"`

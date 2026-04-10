@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"regexp"
 )
 
 // MKV metadata embedding helpers
@@ -45,5 +46,16 @@ func GetMKVMetadataArgs(metadata *Metadata) []string {
 	}
 
 	return args
+}
+
+var explicitRegex = regexp.MustCompile(`(?i)(\[explicit\]|\(explicit\)|\bexplicit\s+version\b)`)
+
+// DetectExplicit returns true when the title contains an explicit marker.
+// Used for YouTube fallback where no explicit flag exists on the source.
+func DetectExplicit(title string) bool {
+	if title == "" {
+		return false
+	}
+	return explicitRegex.MatchString(title)
 }
 
