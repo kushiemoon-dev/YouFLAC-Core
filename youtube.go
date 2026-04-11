@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/wader/goutubedl"
@@ -71,11 +72,23 @@ var youtubeThumbnailBase = "https://i.ytimg.com/vi"
 var thumbnailHTTPClient = &http.Client{Timeout: 5 * time.Second}
 var assetHTTPClient = &http.Client{Timeout: 30 * time.Second}
 
-// ytdlpBinary is the yt-dlp executable path. Override in tests via SetYtdlpBinaryForTests.
-var ytdlpBinary = "yt-dlp"
+var (
+	ytdlpBinaryMu sync.RWMutex
+	ytdlpBinary   = "yt-dlp"
+)
+
+func getYtdlpBinary() string {
+	ytdlpBinaryMu.RLock()
+	defer ytdlpBinaryMu.RUnlock()
+	return ytdlpBinary
+}
 
 // SetYtdlpBinaryForTests allows tests and env-based overrides to set the binary path.
-func SetYtdlpBinaryForTests(path string) { ytdlpBinary = path }
+func SetYtdlpBinaryForTests(path string) {
+	ytdlpBinaryMu.Lock()
+	ytdlpBinary = path
+	ytdlpBinaryMu.Unlock()
+}
 
 func init() {
 	if v := os.Getenv("YOUFLAC_YTDLP_BIN"); v != "" {
@@ -1049,7 +1062,7 @@ func FetchChannelUploads(ctx context.Context, channelURL string, opts ChannelOpt
 		}
 		args = append(args, target)
 
-		cmd := exec.CommandContext(ctx, ytdlpBinary, args...)
+		cmd := exec.CommandContext(ctx, getYtdlpBinary(), args...)
 		stdout, err := cmd.StdoutPipe()
 		if err != nil {
 			errc <- fmt.Errorf("stdout pipe: %w", err)
